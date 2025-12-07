@@ -54,23 +54,20 @@ class CoalDataset:
         self.test_ds = CoalTestDataset(cls, size)
 
         self.train_data_ratio = train_data_ratio
-        # 如果指定了小于1的比例，则对训练数据进行采样
         if train_data_ratio < 1.0:
             self._sample_train_data()
         
-
-
     def _sample_train_data(self):
-        """随机选取指定比例的训练数据"""
+        """Randomly select specified proportion of training data"""
         total_size = len(self.train_ds)
         sample_size = int(total_size * self.train_data_ratio)
         
-        # 随机选择索引
+        # Randomly select indices
         indices = list(range(total_size))
         random.shuffle(indices)
         sampled_indices = indices[:sample_size]
         
-        # 创建子集
+        # Create subset
         self.train_ds = Subset(self.train_ds, sampled_indices)
         
         print(f"Sampled {sample_size} out of {total_size} training examples "
@@ -78,15 +75,15 @@ class CoalDataset:
 
     def check_and_download_cls(self):
         """
-            If the expected dataset path is not found, 
-            download the dataset inside /dataset.
+        If the expected dataset path is not found, 
+        download the dataset inside /dataset.
         """
 
         if not isdir(DATASETS_PATH / self.cls):
             print(f"Class '{self.cls}' has not been found in '{DATASETS_PATH}/'. Downloading... \n")
             
             ssl._create_default_https_context = ssl._create_unverified_context
-            wget.download(class_links[self.cls]) # Downoad of the zipped dataset
+            wget.download(class_links[self.cls]) # Download of the zipped dataset
             with tarfile.open(f"{self.cls}.tar.xz") as tar: # Unzip
                 tar.extractall(DATASETS_PATH)
             os.remove(f"{self.cls}.tar.xz") # Clean up
@@ -99,24 +96,23 @@ class CoalDataset:
 
     def get_datasets(self):
         """
-            Returns as tuple:
-            - train dataset (MVTecTrainDataset class)
-            - test dataset (MVTecTestDataset class)
+        Returns as tuple:
+        - train dataset (MVTecTrainDataset class)
+        - test dataset (MVTecTestDataset class)
         """
         return self.train_ds, self.test_ds
 
 
     def get_dataloaders(self):
         """
-            Returns as tuple:
-            - train dataloader (torch.utils.data.DataLoader class)
-            - test dataloader (torch.utils.data.DataLoader class)
+        Returns as tuple:
+        - train dataloader (torch.utils.data.DataLoader class)
+        - test dataloader (torch.utils.data.DataLoader class)
         """
         return DataLoader(self.train_ds), DataLoader(self.test_ds)
 
-
-def _convert_image_to_rgb(image):
-    return image.convert("RGB")
+    def _convert_image_to_rgb(image):
+        return image.convert("RGB")
 
 
 class CoalTrainDataset(ImageFolder):
@@ -180,7 +176,7 @@ class CoalTestDataset(ImageFolder):
             mask = self.loader(mask_path)                       # Load the mask
             sample_class = 1
 
-        # Trasnformations 
+        # Transformations 
         if self.transform is not None:
             sample = self.transform(sample)  
 

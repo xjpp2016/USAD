@@ -35,9 +35,6 @@ class PatchCore(torch.nn.Module):
 
         super(PatchCore, self).__init__()
 
-
-        # print(f"Net Used: {backbone}")
-
         # Hook to extract feature maps
         def hook(module, input, output) -> None:
             """This hook saves the extracted feature map on self.featured."""
@@ -64,11 +61,11 @@ class PatchCore(torch.nn.Module):
 
     def forward(self, sample: tensor):
         """
-            Initialize self.features and let the input sample passing
-            throught the backbone net self.model.
-            The registered hooks will extract the layer 2 and 3 feature maps.
-            Return:
-                self.feature filled with extracted feature maps
+        Initialize self.features and let the input sample pass through
+        the backbone net self.model.
+        The registered hooks will extract the layer 2 and 3 feature maps.
+        Return:
+            self.feature filled with extracted feature maps
         """
 
         self.features = []
@@ -80,8 +77,8 @@ class PatchCore(torch.nn.Module):
     def fit(self, train_dataloader: DataLoader, scale: int=1) -> None:
 
         """
-            Training phase
-            Creates memory bank from train dataset and apply greedy coreset subsampling.
+        Training phase
+        Creates memory bank from train dataset and applies greedy coreset subsampling.
         """
         tot = len(train_dataloader) // scale
         counter = 0
@@ -97,7 +94,7 @@ class PatchCore(torch.nn.Module):
             # Create patch
             resized_maps = [self.resize(self.avg(fmap)) for fmap in feature_maps]
             patch = torch.cat(resized_maps, 1)            # Merge the resized feature maps
-            patch = patch.reshape(patch.shape[1], -1).T   # Craete a column tensor
+            patch = patch.reshape(patch.shape[1], -1).T   # Create a column tensor
 
             self.memory_bank.append(patch)                # Fill memory bank
             counter += 1
@@ -122,15 +119,15 @@ class PatchCore(torch.nn.Module):
         each test sample. Returns the ROC AUC computed from predictions scores.
 
         Args:
-            test_dataloader: 测试数据加载器
-            save_dir: 保存结果的目录路径
+            test_dataloader: Test data loader
+            save_dir: Path to save results
 
         Returns:
             - image-level ROC-AUC score
             - pixel-level ROC-AUC score
         """
 
-        # 创建保存目录
+        # Create save directory
         os.makedirs(save_dir, exist_ok=True)
         os.makedirs(os.path.join(save_dir, "segmentation_maps"), exist_ok=True)
         os.makedirs(os.path.join(save_dir, "heatmaps"), exist_ok=True)
@@ -149,20 +146,20 @@ class PatchCore(torch.nn.Module):
             image_preds.append(score.numpy())
             pixel_preds.extend(segm_map.flatten().numpy())
 
-            # 保存分割图为灰度图像
+            # Save segmentation map as grayscale image
             segm_map_np = segm_map.squeeze().numpy()
 
-            # 归一化到0-255
+            # Normalize to 0-255
             segm_map_255 = (segm_map_np * 255).astype(np.uint8)
             
             seg_filename = os.path.join(save_dir, "segmentation_maps", f"{idx:04d}_seg_map.png")
             cv2.imwrite(seg_filename, segm_map_255)
 
-            # 生成并保存热力图
+            # Generate and save heatmap
             heatmap = cv2.applyColorMap(segm_map_255, cv2.COLORMAP_VIRIDIS)
             cv2.imwrite(os.path.join(save_dir, "heatmaps", f"{idx:04d}_heatmap.png"), heatmap)
             
-            # 生成并保存叠加图
+            # Generate and save overlay image
             sample = self._denormalize_tensor(sample)
             sample_np = (sample[0].permute(1, 2, 0).numpy() * 255).astype(np.uint8)
             sample_bgr = cv2.cvtColor(sample_np, cv2.COLOR_RGB2BGR)
@@ -172,11 +169,11 @@ class PatchCore(torch.nn.Module):
         image_labels = np.stack(image_labels)
         image_preds = np.stack(image_preds)
 
-        # 计算ROC AUC
+        # Compute ROC AUC
         image_level_rocauc = roc_auc_score(image_labels, image_preds)
         pixel_level_rocauc = roc_auc_score(pixel_labels, pixel_preds)
 
-        # 保存结果
+        # Save results
         with open(os.path.join(save_dir, "results.txt"), "w") as f:
             f.write(f"Image-level ROC-AUC: {image_level_rocauc:.4f}\n")
             f.write(f"Pixel-level ROC-AUC: {pixel_level_rocauc:.4f}\n")
@@ -190,115 +187,118 @@ class PatchCore(torch.nn.Module):
     
     def predict(self, sample: tensor):
             """
-            对测试样本进行异常检测
-            主要步骤：
-            1. 创建测试样本的局部感知块特征
-            2. 通过比较测试块与记忆库中最近邻块的差异，计算图像级异常检测分数
-            3. 根据各自的空间位置重新排列计算出的块异常分数，生成分割图。
-            然后通过双线性插值上采样分割图，并使用高斯模糊平滑结果
+            Perform anomaly detection on test sample
+            Main steps:
+            1. Create local-aware patch features for test sample
+            2. Compute image-level anomaly detection score by comparing test patches
+               with nearest neighbor patches in memory bank
+            3. Generate segmentation map by rearranging computed patch anomaly scores
+               according to their spatial positions.
+            The segmentation map is then upsampled with bilinear interpolation
+            and smoothed with Gaussian blur
             
-            参数：
-            - sample: 测试样本
+            Args:
+            - sample: Test sample
             
-            返回：
-            - 分割分数（异常得分）
-            - 分割图
+            Returns:
+            - Segmentation score (anomaly score)
+            - Segmentation map
             """
             
-            # ========== 块特征提取 ==========
-            # 通过神经网络前向传播获取特征图
+            # ========== Patch Feature Extraction ==========
+            # Get feature maps through neural network forward pass
             feature_maps = self(sample)
             
-            # 创建平均池化层，用于平滑特征图（3x3窗口，步长为1）
+            # Create average pooling layer for smoothing feature maps (3x3 window, stride 1)
             self.avg = torch.nn.AvgPool2d(3, stride=1)
             
-            # 获取第一个特征图的高度和宽度（假设所有特征图尺寸相同）
+            # Get height and width of first feature map (assuming all feature maps have same size)
             fmap_size = feature_maps[0].shape[-2]
             
-            # 创建自适应平均池化层，将所有特征图调整到相同尺寸
+            # Create adaptive average pooling layer to adjust all feature maps to same size
             self.resize = torch.nn.AdaptiveAvgPool2d(fmap_size)
             
-            # 对每个特征图进行平滑和尺寸调整
+            # Smooth and resize each feature map
             resized_maps = [self.resize(self.avg(fmap)) for fmap in feature_maps]
             
-            # 在通道维度上拼接所有处理后的特征图
+            # Concatenate all processed feature maps along channel dimension
             patch = torch.cat(resized_maps, 1)
             
-            # 将特征图重构为块表示：形状变为 (块数量, 块特征维度)
-            # 其中块数量 = 特征图高度 × 特征图宽度
+            # Reshape feature map to patch representation: shape becomes (number of patches, patch feature dimension)
+            # where number of patches = feature map height × feature map width
             patch = patch.reshape(patch.shape[1], -1).T
 
-            # ========== 计算最大距离分数 s*（论文中的公式6） ==========
-            # 计算测试样本中每个块与记忆库中所有块的L2距离
+            # ========== Compute Maximum Distance Score s* (Equation 6 in the paper) ==========
+            # Compute L2 distance between each patch in test sample and all patches in memory bank
             device = patch.device
             self.memory_bank = self.memory_bank.to(device)
             distances = torch.cdist(patch, self.memory_bank, p=2.0)
             
-            # 找到每个测试块到记忆库的最小距离及其索引
+            # Find minimum distance for each test patch to memory bank and its indices
             dist_score, dist_score_idxs = torch.min(distances, dim=1)
             
-            # 找到所有最小距离中的最大值（最异常的块）
-            s_idx = torch.argmax(dist_score)                                # 异常候选块的索引
-            s_star = torch.max(dist_score)                                  # 最大距离分数 s*
-            m_test_star = torch.unsqueeze(patch[s_idx], dim=0)              # 异常候选块特征
-            m_star = self.memory_bank[dist_score_idxs[s_idx]].unsqueeze(0)  # 记忆库中与异常候选块最接近的邻居块
+            # Find maximum value among all minimum distances (most anomalous patch)
+            s_idx = torch.argmax(dist_score)                                # Index of anomaly candidate patch
+            s_star = torch.max(dist_score)                                  # Maximum distance score s*
+            m_test_star = torch.unsqueeze(patch[s_idx], dim=0)              # Anomaly candidate patch feature
+            m_star = self.memory_bank[dist_score_idxs[s_idx]].unsqueeze(0)  # Nearest neighbor patch in memory bank to anomaly candidate patch
 
-            # ========== K近邻搜索 ==========
-            # 计算异常候选块的最近邻居在记忆库中的距离
+            # ========== K-Nearest Neighbor Search ==========
+            # Compute distances of anomaly candidate patch's nearest neighbors in memory bank
             knn_dists = torch.cdist(m_star, self.memory_bank, p=2.0)
             
-            # 找到k个最近邻居的索引（排除自身，所以从第1个开始）
+            # Find indices of k nearest neighbors (skip self, so start from 1st)
             _, nn_idxs = knn_dists.topk(k=self.k_nearest, largest=False)
 
-            # ========== 计算图像级异常分数 s ==========
-            # 获取异常候选块的邻居块（排除第一个，因为第一个是自身）
+            # ========== Compute Image-Level Anomaly Score s ==========
+            # Get neighbor patches of anomaly candidate patch (skip first one as it's self)
             m_star_neighbourhood = self.memory_bank[nn_idxs[0, 1:]]
             
-            # 计算异常候选块与其邻居块的L2距离（公式7的分母部分）
+            # Compute L2 distance between anomaly candidate patch and its neighbor patches (denominator of Equation 7)
             w_denominator = torch.linalg.norm(m_test_star - m_star_neighbourhood, dim=1)
             
-            # 计算归一化因子，防止指数运算溢出
+            # Compute normalization factor to prevent exponential overflow
             norm = torch.sqrt(torch.tensor(patch.shape[1]))
             
-            # 计算权重w（论文中的公式7）
+            # Compute weight w (Equation 7 in the paper)
             w = 1 - (torch.exp(s_star / norm) / torch.sum(torch.exp(w_denominator / norm)))
             
-            # 计算最终的图像级异常分数
+            # Compute final image-level anomaly score
             s = w * s_star
 
-            # ========== 生成分割图 ==========
-            # 获取特征图的完整尺寸（高度和宽度）
+            # ========== Generate Segmentation Map ==========
+            # Get full dimensions of feature map (height and width)
             fmap_size = feature_maps[0].shape[-2:]
             
-            # 将距离分数重新组织为分割图格式 (1, 1, 高度, 宽度)
+            # Reorganize distance scores into segmentation map format (1, 1, height, width)
             segm_map = dist_score.view(1, 1, *fmap_size)
             segm_map = (segm_map - segm_map.min())/(segm_map.max() - segm_map.min() + 1e-8)
             
-            # 使用双线性插值将分割图上采样到原始输入图像尺寸
+            # Upsample segmentation map to original input image size using bilinear interpolation
             segm_map = torch.nn.functional.interpolate(
                             segm_map,
                             size=(self.image_size, self.image_size),
                             mode='bilinear'
                         )
             
-            # 对分割图应用高斯模糊进行平滑处理
+            # Apply Gaussian blur to segmentation map for smoothing
             segm_map = gaussian_blur(segm_map)
 
             return s, segm_map
     
     def _denormalize_tensor(self, tensor):
         """
-        将ImageNet归一化的tensor反归一化到[0,1]范围
+        Denormalize ImageNet-normalized tensor back to [0,1] range
         """
-        # 确保mean和std的维度正确
+        # Ensure mean and std have correct dimensions
 
         mean = IMAGENET_MEAN.clone().detach().view(-1, 1, 1).to(tensor.device)
         std = IMAGENET_STD.clone().detach().view(-1, 1, 1).to(tensor.device)
         
-        # 反归一化
+        # Denormalize
         tensor = tensor * std + mean
         
-        # 裁剪到[0,1]范围
+        # Clip to [0,1] range
         return torch.clamp(tensor, 0, 1)
     
     def save_memory_bank(self, file_path: str):

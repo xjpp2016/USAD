@@ -14,15 +14,15 @@ def get_coreset(
         eps: float = 0.09,
 ) -> tensor:
     """
-        Returns l coreset indexes for given memory_bank.
+    Returns l coreset indexes for given memory_bank.
 
-        Args:
-        - memory_bank:     Patchcore memory bank tensor
-        - l:               Number of patches to select
-        - eps:             Sparse Random Projector parameter
+    Args:
+    - memory_bank:     Patchcore memory bank tensor
+    - l:               Number of patches to select
+    - eps:             Sparse Random Projector parameter
 
-        Returns:
-        - coreset indexes
+    Returns:
+    - coreset indexes
     """
 
     coreset_idx = []  # Returned coreset indexes
@@ -50,7 +50,7 @@ def get_coreset(
 
     for _ in tqdm(range(l - 1)):
         distances = torch.linalg.norm(memory_bank - last_item, dim=1, keepdims=True)    # L2 norm of distances (tensor)
-        min_distances = torch.minimum(distances, min_distances)                         # Verical tensor of minimum norms
+        min_distances = torch.minimum(distances, min_distances)                         # Vertical tensor of minimum norms
         idx = torch.argmax(min_distances)                                               # Index of maximum related to the minimum of norms
 
         last_item = memory_bank[idx: idx + 1]   # last_item = maximum patch just found
@@ -62,7 +62,7 @@ def get_coreset(
 
 def gaussian_blur(img: tensor) -> tensor:
     """
-        Apply a gaussian smoothing with sigma = 4 over the input image.
+    Apply a gaussian smoothing with sigma = 4 over the input image.
     """
     # Setup
     blur_kernel = ImageFilter.GaussianBlur(radius=4)
@@ -94,15 +94,15 @@ def tensor_to_image(tensor):
 
 def set_seed(seed: int = 42):
     """
-    固定所有随机种子以确保实验可重复
+    Fix all random seeds to ensure experiment reproducibility
     
     Args:
-        seed: 随机种子，默认为42
+        seed: Random seed, defaults to 42
     """
     import os
     import random
 
-    # Python内置随机模块
+    # Python built-in random module
     random.seed(seed)
     
     # NumPy
@@ -111,15 +111,13 @@ def set_seed(seed: int = 42):
     # PyTorch
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)  # 如果使用多GPU
+    torch.cuda.manual_seed_all(seed)  # If using multiple GPUs
     
-    # PyTorch的CuDNN后端
+    # PyTorch CuDNN backend
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
     
-    # 设置环境变量（可选）
+    # Set environment variables (optional)
     os.environ['PYTHONHASHSEED'] = str(seed)
     
     print(f"All random seeds fixed to {seed}")
-
-    

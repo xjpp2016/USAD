@@ -1,5 +1,5 @@
 import os
-os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
+os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com' # Set HuggingFace endpoint to mirror site
 import torch
 from torch import tensor
 from torch.utils.data import DataLoader
@@ -27,8 +27,8 @@ class DINOv2AnomalyDetector(torch.nn.Module):
             clusters: int = 2,
             img_size: int = 336,
             strong_foreground_threshold: float = 1.13,
-            gaussian_sigma: float = 4.0,  # 添加高斯滤波参数
-            replace_method: str = "random_replacement", # 添加替换方法参数 "mean_replacement", "random_replacement"
+            gaussian_sigma: float = 4.0,  # Add Gaussian filter parameter
+            replace_method: str = "random_replacement", # Add replacement method parameter "mean_replacement", "random_replacement"
     ):
         super(DINOv2AnomalyDetector, self).__init__()
         
@@ -39,10 +39,10 @@ class DINOv2AnomalyDetector(torch.nn.Module):
         self.gaussian_sigma = gaussian_sigma
         self.replace_method = replace_method
         
-        # 设备设置
+        # Device setup
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        # 初始化特征提取器
+        # Initialize feature extractor
         self.feature_extractor = timm.create_model(
             self.model_name,
             pretrained=True,
@@ -56,7 +56,7 @@ class DINOv2AnomalyDetector(torch.nn.Module):
         self.feature_extractor.eval()
 
     def _extract_features(self, image_tensor):
-        """提取特征"""
+        """Extract features"""
         with torch.no_grad():
             outputs = self.feature_extractor.forward_features(image_tensor)
             patch_tokens = outputs[:, 1:, :]
@@ -66,7 +66,7 @@ class DINOv2AnomalyDetector(torch.nn.Module):
 
     def train(self, train_dataloader: DataLoader, scale: int = 1) -> None:
         """
-        训练阶段：只构建CLS token记忆库
+        Training phase: Build only CLS token memory bank
         """
         tot = len(train_dataloader) // scale
         counter = 0
@@ -76,7 +76,7 @@ class DINOv2AnomalyDetector(torch.nn.Module):
 
         for sample, _ in tqdm(train_dataloader, total=tot):
             sample = sample.to(self.device)
-            # 提取CLS token和patch tokens，但只存储CLS tokens
+            # Extract CLS token and patch tokens, but only store CLS tokens
             patch_tokens, cls_tokens = self._extract_features(sample)
             cls_tokens_list.append(cls_tokens)
             patch_tokens_list.append(patch_tokens)
@@ -85,9 +85,9 @@ class DINOv2AnomalyDetector(torch.nn.Module):
             if counter > tot:
                 break
 
-        # 合并所有CLS tokens
+        # Combine all CLS tokens
         self.memory_bank_cls = torch.cat(cls_tokens_list, 0)  # [num_samples, hidden_dim]
-        # 计算记忆库的统计量用于马氏距离（基于CLS tokens）
+        # Compute memory bank statistics for Mahalanobis distance (based on CLS tokens)
         self._compute_mahalanobis_params()
         print(f"Memory bank built with {self.memory_bank_cls.shape[0]} CLS tokens")
 
@@ -109,19 +109,19 @@ class DINOv2AnomalyDetector(torch.nn.Module):
 
     def _compute_mahalanobis_params(self):
         """
-        计算CLS tokens马氏距离所需的均值和协方差矩阵
+        Compute mean and covariance matrix required for Mahalanobis distance of CLS tokens
         """
         if self.memory_bank_cls is None:
             raise ValueError("Memory bank is not built yet. Call fit() first.")
         
-        # 计算均值向量
+        # Compute mean vector
         self.mean_vector = torch.mean(self.memory_bank_cls, dim=0)
         
-        # 计算协方差矩阵
+        # Compute covariance matrix
         centered_data = self.memory_bank_cls - self.mean_vector
         self.cov_matrix = torch.mm(centered_data.T, centered_data) / (self.memory_bank_cls.shape[0] - 1)
         
-        # 计算协方差矩阵的逆（添加小量避免奇异矩阵）
+        # Compute inverse of covariance matrix (add small value to avoid singular matrix)
         reg_matrix = torch.eye(self.cov_matrix.shape[0]) * 1e-6
         reg_matrix = reg_matrix.to(self.device)
         self.inv_cov_matrix = torch.inverse(self.cov_matrix + reg_matrix)
@@ -130,50 +130,50 @@ class DINOv2AnomalyDetector(torch.nn.Module):
 
     def _mahalanobis_distance_batch(self, test_tokens):
         """
-        批量计算马氏距离（使用CLS tokens的统计量）
+        Compute Mahalanobis distance in batch (using statistics of CLS tokens)
         """
         if self.mean_vector is None or self.inv_cov_matrix is None:
             raise ValueError("Mahalanobis parameters not computed. Call fit() first.")
         
-        # 批量计算差值
+        # Compute difference in batch
         diff = test_tokens - self.mean_vector.unsqueeze(0)
         
-        # 批量计算马氏距离: sqrt((x-μ)^T Σ^(-1) (x-μ))
+        # Compute Mahalanobis distance in batch: sqrt((x-μ)^T Σ^(-1) (x-μ))
         temp = torch.einsum('bi,ij->bj', diff, self.inv_cov_matrix)
         mahal_dists = torch.sqrt(torch.einsum('bi,bi->b', temp, diff))
         
         return mahal_dists
     
     def _calculate_patch_confidence_scores(self, features_array):
-        """计算每个patch的置信度分数"""
+        """Calculate confidence score for each patch"""
         self.patch_labels = self.kmeans.predict(features_array)
         self.distances = self.kmeans.transform(features_array)
         dist_to_foreground = self.distances[:, self.foreground_cluster]
         dist_to_background = self.distances[:, self.background_cluster]
         
-        # 置信度：值越高表示越可能是前景
+        # Confidence: higher value indicates more likely to be foreground
         confidence_scores = dist_to_background / (dist_to_foreground + 1e-8)
         
         return confidence_scores
 
     def _replace_with_background_distribution(self, confidence_scores):
         """
-        使用背景分布的随机值替换强前景点
-        使用聚类信息自动获取背景区域
+        Replace strong foreground points with random values from background distribution
+        Use clustering information to automatically obtain background areas
         """
 
         modified_scores = confidence_scores.copy()
         strong_foreground_mask = confidence_scores > self.strong_foreground_threshold
         
-        # 获取背景区域
+        # Get background areas
         background_mask = (self.patch_labels == self.background_cluster)
         
         if np.sum(strong_foreground_mask) > 0 and np.sum(background_mask) > 0:
-            # 获取背景区域的置信度值
+            # Get confidence values of background areas
             background_scores = confidence_scores[background_mask]
             
             if self.replace_method == "random_replacement":
-                # 从背景分布中随机采样来替换强前景点
+                # Replace strong foreground points with random sampling from background distribution
                 random_background_values = np.random.choice(
                     background_scores, 
                     size=np.sum(strong_foreground_mask),
@@ -182,43 +182,43 @@ class DINOv2AnomalyDetector(torch.nn.Module):
                 modified_scores[strong_foreground_mask] = random_background_values
 
             elif self.replace_method == "mean_replacement":
-                # 将强前景点替换为背景平均值
+                # Replace strong foreground points with background mean value
                 background_mean = np.mean(background_scores)
                 modified_scores[strong_foreground_mask] = background_mean
 
             else:
                 raise ValueError(f"Unknown replacement method: {self.replace_method}")
 
-            # 将强前景点替换为背景平均值
+            # Replace strong foreground points with background mean value
             background_mean = np.mean(background_scores)
             modified_scores[strong_foreground_mask] = background_mean
             
-            # print(f"替换了 {np.sum(strong_foreground_mask)} 个强前景点")
+            # print(f"Replaced {np.sum(strong_foreground_mask)} strong foreground points")
         
         return modified_scores#, strong_foreground_mask.flatten()
 
     def predict(self, sample: tensor):
         """
-        对测试样本进行异常检测
+        Perform anomaly detection on test sample
         
-        参数：
-        - sample: 测试样本tensor [B, C, H, W]
+        Args:
+        - sample: Test sample tensor [B, C, H, W]
         
-        返回：
-        - 图像级异常分数
-        - 像素级异常图
+        Returns:
+        - Image-level anomaly score
+        - Pixel-level anomaly map
         """
         batch_size = sample.shape[0]
         if batch_size > 1:
-            raise ValueError("目前只支持单样本预测")
+            raise ValueError("Currently only supports single sample prediction")
         
-        # 将样本移动到设备
+        # Move sample to device
         sample = sample.to(self.device)
         
-        # 调整图像尺寸用于聚类特征提取
+        # Adjust image size for clustering feature extraction
         original_size = sample.shape[2:]  # [H, W]
         
-        # 处理尺寸
+        # Process size
         if max(original_size) > self.img_size:
             scale = self.img_size / max(original_size)
             new_h, new_w = int(original_size[0] * scale), int(original_size[1] * scale)
@@ -229,25 +229,25 @@ class DINOv2AnomalyDetector(torch.nn.Module):
             sample_resized = sample
             new_h, new_w = original_size
         
-        # 提取特征
+        # Extract features
         features_array, cls_tokens = self._extract_features(sample_resized)
         
-        # 计算patch置信度分数
+        # Calculate patch confidence scores
         patch_confidence_scores = self._calculate_patch_confidence_scores(features_array)
         adjusted_scores = self._replace_with_background_distribution(patch_confidence_scores)
 
-        # 使用CLS token的马氏距离作为图像级异常分数
+        # Use Mahalanobis distance of CLS token as image-level anomaly score
         cls_mahal_distances = self._mahalanobis_distance_batch(cls_tokens)
-        image_anomaly_score = cls_mahal_distances[0]  # 假设batch_size=1
+        image_anomaly_score = cls_mahal_distances[0]  # Assuming batch_size=1
         
-        # 生成像素级异常图
+        # Generate pixel-level anomaly map
         H = int(math.sqrt(features_array.shape[0]))
         scores_2d = adjusted_scores.reshape(H, H)
         
-        # 上采样到原始图像尺寸
+        # Upsample to original image size
         segm_map = cv2.resize(scores_2d, (original_size[1], original_size[0]), interpolation=cv2.INTER_LINEAR)
         
-        # 归一化
+        # Normalize
         if np.max(segm_map) - np.min(segm_map) > 1e-8:
             segm_map = (segm_map - np.min(segm_map)) / (np.max(segm_map) - np.min(segm_map) + 1e-8)
         else:
@@ -259,19 +259,19 @@ class DINOv2AnomalyDetector(torch.nn.Module):
 
     def evaluate(self, test_dataloader: DataLoader, save_dir: str = "result/dinov2_anomaly/"):
         """
-        计算异常检测分数和相对分割图
-        返回ROC AUC计算得到的预测分数
+        Compute anomaly detection score and relative segmentation map
+        Returns ROC AUC computed from prediction scores
 
         Args:
-            test_dataloader: 测试数据加载器
-            save_dir: 保存结果的目录路径
+            test_dataloader: Test data loader
+            save_dir: Path to save results
 
         Returns:
             - image-level ROC-AUC score
             - pixel-level ROC-AUC score
         """
 
-        # 创建保存目录
+        # Create save directory
         os.makedirs(save_dir, exist_ok=True)
         os.makedirs(os.path.join(save_dir, "segmentation_maps"), exist_ok=True)
         os.makedirs(os.path.join(save_dir, "heatmaps"), exist_ok=True)
@@ -290,17 +290,17 @@ class DINOv2AnomalyDetector(torch.nn.Module):
             image_preds.append(score.cpu().numpy())
             pixel_preds.extend(segm_map.flatten())
 
-            # 归一化到0-255
+            # Normalize to 0-255
             segm_map_255 = (segm_map * 255).astype(np.uint8)
             
             seg_filename = os.path.join(save_dir, "segmentation_maps", f"{idx:04d}_seg_map.png")
             cv2.imwrite(seg_filename, segm_map_255)
 
-            # 生成并保存热力图
+            # Generate and save heatmap
             heatmap = cv2.applyColorMap(segm_map_255, cv2.COLORMAP_VIRIDIS)
             cv2.imwrite(os.path.join(save_dir, "heatmaps", f"{idx:04d}_heatmap.png"), heatmap)
             
-            # 生成并保存叠加图
+            # Generate and save overlay image
             sample = self._denormalize_tensor(sample)
             sample_np = (sample[0].permute(1, 2, 0).numpy() * 255).astype(np.uint8)
             sample_bgr = cv2.cvtColor(sample_np, cv2.COLOR_RGB2BGR)
@@ -310,11 +310,11 @@ class DINOv2AnomalyDetector(torch.nn.Module):
         image_labels = np.stack(image_labels)
         image_preds = np.stack(image_preds)
 
-        # 计算ROC AUC
+        # Compute ROC AUC
         image_level_rocauc = roc_auc_score(image_labels, image_preds)
         pixel_level_rocauc = roc_auc_score(pixel_labels, pixel_preds)
 
-        # 保存结果
+        # Save results
         with open(os.path.join(save_dir, "results.txt"), "w") as f:
             f.write(f"Image-level ROC-AUC: {image_level_rocauc:.4f}\n")
             f.write(f"Pixel-level ROC-AUC: {pixel_level_rocauc:.4f}\n")
@@ -327,22 +327,22 @@ class DINOv2AnomalyDetector(torch.nn.Module):
     
     def _denormalize_tensor(self, tensor):
         """
-        将ImageNet归一化的tensor反归一化到[0,1]范围
+        Denormalize ImageNet-normalized tensor back to [0,1] range
         """
-        # 确保mean和std的维度正确
+        # Ensure mean and std have correct dimensions
 
         mean = IMAGENET_MEAN.clone().detach().view(-1, 1, 1).to(tensor.device)
         std = IMAGENET_STD.clone().detach().view(-1, 1, 1).to(tensor.device)
         
-        # 反归一化
+        # Denormalize
         tensor = tensor * std + mean
         
-        # 裁剪到[0,1]范围
+        # Clip to [0,1] range
         return torch.clamp(tensor, 0, 1)
     
     def save_ma_memory_bank(self, file_path: str):
         """
-        保存记忆库和相关参数到文件
+        Save memory bank and related parameters to file
         """
         save_data = {
             'memory_bank_cls': self.memory_bank_cls,
@@ -356,7 +356,7 @@ class DINOv2AnomalyDetector(torch.nn.Module):
 
     def load_ma_memory_bank(self, file_path: str):
         """
-        从文件加载记忆库和相关参数
+        Load memory bank and related parameters from file
         """
         load_data = torch.load(file_path, map_location='cpu')
         
@@ -374,7 +374,7 @@ class DINOv2AnomalyDetector(torch.nn.Module):
         print(f"Loaded {self.memory_bank_cls.shape[0]} CLS tokens")
 
     def save_clu_model(self, file_path: str):
-        """保存聚类模型"""
+        """Save clustering model"""
         model_data = {
             'kmeans': self.kmeans,
             'foreground_cluster': self.foreground_cluster
@@ -385,8 +385,8 @@ class DINOv2AnomalyDetector(torch.nn.Module):
         print(f"Model saved to: {file_path}")
 
     def load_clu_model(self, file_path: str):
-        """加载聚类模型"""
-        # 加载聚类模型
+        """Load clustering model"""
+        # Load clustering model
         with open(file_path, 'rb') as f:
             model_data = pickle.load(f)
         
@@ -394,4 +394,4 @@ class DINOv2AnomalyDetector(torch.nn.Module):
         self.foreground_cluster = model_data['foreground_cluster']
         self.background_cluster = 1 - self.foreground_cluster
         
-        print(f"聚类模型已加载: 前景聚类={self.foreground_cluster}, 背景聚类={self.background_cluster}")
+        print(f"Clustering model loaded: foreground cluster={self.foreground_cluster}, background cluster={self.background_cluster}")

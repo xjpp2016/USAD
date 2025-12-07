@@ -1,5 +1,5 @@
 import os
-os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'  # 也可以在代码中设置环境变量
+os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com' # set the HuggingFace endpoint to mirror.com
 from src.data import CoalDataset, coal_classes
 from src.ma_clu import DINOv2AnomalyDetector
 from src.utils import set_seed

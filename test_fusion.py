@@ -9,11 +9,15 @@ import os
 import warnings
 warnings.filterwarnings('ignore', category=FutureWarning)
 
+# Define all coal classes
 ALL_CLASSES = coal_classes()
+# Define image sizes for different models
 CLU_SIZE = 336
 M2P_SIZE = 224
 PC_SIZE = 224
+# Strong foreground threshold
 STR_F_THRESH = 1.13
+# Result directory
 RESULT_DIR = 'result/'
 
 def run_combined_model(
@@ -23,14 +27,23 @@ def run_combined_model(
         m2p_backbone: str = 'vit_base_patch14_dinov2.lvd142m',
 
 ) -> None:
+    """
+    Run combined anomaly detection model
+    
+    Args:
+        classes: List of classes to process, defaults to all coal types
+        threshold: Strong foreground threshold
+        clu_backbone: Backbone network for CLU detector
+        m2p_backbone: Backbone network for MA2Patch detector
+    """
 
-    results = {}  # key = class, Value = 包含像素级和图像级ROC AUC的字典
+    results = {}  # key = class, Value = dictionary containing pixel-level and image-level ROC AUC
 
     print(f'Running Combined Anomaly Detection...')
     for cls in classes:
         print(f'\nClass {cls}:')
 
-        # 获取数据加载器
+        # Get data loader (select based on maximum size)
         if CLU_SIZE >= M2P_SIZE and CLU_SIZE >= PC_SIZE:
             _, test_dl = CoalDataset(cls=cls, size=CLU_SIZE).get_dataloaders()
         elif M2P_SIZE >= PC_SIZE:  
@@ -38,8 +51,8 @@ def run_combined_model(
         else:
             _, test_dl = CoalDataset(cls=cls, size=PC_SIZE).get_dataloaders()
 
-        # 初始化三个检测器
-        detector_clu = DINOv2AnomalyDetector(model_name= clu_backbone, img_size=CLU_SIZE, strong_foreground_threshold=threshold)
+        # Initialize three detectors
+        detector_clu = DINOv2AnomalyDetector(model_name=clu_backbone, img_size=CLU_SIZE, strong_foreground_threshold=threshold)
         detector_clu.load_ma_memory_bank("./saved_models/ma_memory_bank.pkl")
         detector_clu.load_clu_model("./saved_models/confidence_model.pkl")
 
@@ -50,30 +63,29 @@ def run_combined_model(
         detector_pc.load_memory_bank("saved_models/pc_memory_bank.pth")
         
         print('Initializing combined detector...')
-        # 初始化合并检测器
+        # Initialize combined detector
         combined_detector = CombinedAnomalyDetector(
             detector_clu=detector_clu,
             detector_m2p=detector_m2p,
             detector_pc=detector_pc,  
-            device=None  # 自动选择设备
+            device=None  # Auto-select device
         )
 
         print(f'Testing combined model...')
-        # 创建目录（如果不存在）
         os.makedirs(f'{RESULT_DIR}/{cls}', exist_ok=True)
-        # 评估测试集 - 现在返回包含像素级和图像级的结果
+        # Evaluate test set - now returns results containing pixel-level and image-level
         evaluation_results = combined_detector.evaluate(
             test_dl, 
             save_dir=f'{RESULT_DIR}/{cls}/combined', 
         )
 
-        # 保存结果到文件
+        # Save results to file
         tex_filename = f'{RESULT_DIR}/{cls}/combined/result.txt'
-        with open(tex_filename, 'a') as f:  # 使用追加模式
+        with open(tex_filename, 'a') as f:  # Use append mode
             f.write(f'Class: {cls}\n')
             results[cls] = evaluation_results
             
-            # 写入合并结果
+            # Write combined results
             f.write(f'- Combined Image-level ROC AUC = {evaluation_results["combined_image_rocauc"]:.3f}\n')
             f.write(f'- Combined Pixel-level ROC AUC = {evaluation_results["combined_pixel_rocauc"]:.3f}\n')
             
@@ -85,5 +97,6 @@ def run_combined_model(
 
 
 if __name__ == "__main__":
+    # Set random seed for reproducible results
     set_seed(22)
     run_combined_model(threshold=STR_F_THRESH)
