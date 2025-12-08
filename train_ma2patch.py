@@ -39,7 +39,7 @@ def run_model(
 
         # Test
         detector_test = DINOv2AnomalyDetector(model_name= backbone)
-        detector_test.load_ma_memory_bank("./trained_models/ma2ptch_memory_bank.pkl")
+        detector_test.load_ma_memory_bank(m2ptch_mem_bank_path)
 
         os.makedirs(f'{RESULT_DIR}/{cls}', exist_ok=True)
         image_rocauc, pixel_rocauc = detector_test.evaluate(test_dl, f'{RESULT_DIR}/{cls}/ma2ptch')
