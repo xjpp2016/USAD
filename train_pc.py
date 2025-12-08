@@ -9,7 +9,8 @@ warnings.filterwarnings('ignore', category=FutureWarning)
 
 ALL_CLASSES = coal_classes()
 PC_SIZE = 224
-RESULT_DIR = 'result/'
+RESULT_DIR = 'result'
+SAVED_MODELS_DIR = 'trained_models'
 
 def run_model(
         classes: list = ALL_CLASSES,
@@ -22,18 +23,23 @@ def run_model(
 
     print(f'Running PatchCore...')
     for cls in classes:
+        print(f'\nClass {cls}:')
+
         train_dl, test_dl = CoalDataset(cls, size=size, train_data_ratio=train_data_ratio).get_dataloaders()
         patch_core = PatchCore(f_coreset, image_size=size)
 
-        print(f'\nClass {cls}:')
         print(f'Training...')
-        # patch_core.fit(train_dl)
+        model_dir = f'{SAVED_MODELS_DIR}/{cls}'
+        os.makedirs(model_dir, exist_ok=True)
+        pc_memory_bank_path = f'{model_dir}/pc_memory_bank.pth'
 
-        # # 保存memory_bank
-        # patch_core.save_memory_bank("trained_models/pc_memory_bank.pth")
+        patch_core.fit(train_dl)
+
+        # 保存memory_bank
+        patch_core.save_memory_bank(pc_memory_bank_path)
 
         # 加载memory_bank
-        patch_core.load_memory_bank("trained_models/pc_memory_bank.pth")
+        patch_core.load_memory_bank(pc_memory_bank_path)
 
         print(f'Testing...')
         os.makedirs(f'{RESULT_DIR}/{cls}', exist_ok=True)

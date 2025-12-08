@@ -10,7 +10,8 @@ warnings.filterwarnings('ignore', category=FutureWarning)
 
 ALL_CLASSES = coal_classes()
 VIT_SIZE = 336
-RESULT_DIR = 'result/'
+RESULT_DIR = 'result'
+SAVED_MODELS_DIR = 'trained_models'
 
 def run_model(
         classes: list = ALL_CLASSES,
@@ -23,19 +24,25 @@ def run_model(
 
     print(f'Running PatchCore...')
     for cls in classes:
+        print(f'\nClass {cls}:')
+
         train_dl, test_dl = CoalDataset(cls, size=size, train_data_ratio=train_data_ratio).get_dataloaders()
 
-        print(f'\nClass {cls}:')
         # Train
+        model_dir = f'{SAVED_MODELS_DIR}/{cls}'
+        os.makedirs(model_dir, exist_ok=True) 
+        ma_memory_bank_path = f'{model_dir}/ma_memory_bank.pkl'
+        confidence_model_path = f'{model_dir}/confidence_model.pkl'
+
         detector = DINOv2AnomalyDetector(model_name= backbone)
         detector.train(train_dl)
-        detector.save_ma_memory_bank("./trained_models/ma_memory_bank.pkl")
-        detector.save_clu_model("./trained_models/confidence_model.pkl")
+        detector.save_ma_memory_bank(ma_memory_bank_path)
+        detector.save_clu_model(confidence_model_path)
 
         # Test
         detector_test = DINOv2AnomalyDetector(model_name= backbone)
-        detector_test.load_ma_memory_bank("./trained_models/ma_memory_bank.pkl")
-        detector_test.load_clu_model("./trained_models/confidence_model.pkl")
+        detector_test.load_ma_memory_bank(ma_memory_bank_path)
+        detector_test.load_clu_model(confidence_model_path)
 
         os.makedirs(f'{RESULT_DIR}/{cls}', exist_ok=True)
         image_rocauc, pixel_rocauc = detector_test.evaluate(test_dl, f"./{RESULT_DIR}/{cls}/ma_clu")

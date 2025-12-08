@@ -10,7 +10,8 @@ warnings.filterwarnings('ignore', category=FutureWarning)
 
 ALL_CLASSES = coal_classes()
 VIT_SIZE = 224
-RESULT_DIR = 'result/'
+RESULT_DIR = 'result'
+SAVED_MODELS_DIR = 'trained_models'
 
 def run_model(
         classes: list = ALL_CLASSES,
@@ -23,13 +24,18 @@ def run_model(
 
     print(f'Running PatchCore...')
     for cls in classes:
+        print(f'\nClass {cls}:')
+
         train_dl, test_dl = CoalDataset(cls, size=size, train_data_ratio=train_data_ratio).get_dataloaders()
 
-        print(f'\nClass {cls}:')
         # Train
+        model_dir = f'{SAVED_MODELS_DIR}/{cls}'
+        os.makedirs(model_dir, exist_ok=True) 
+        m2ptch_mem_bank_path = f'{model_dir}/ma2ptch_memory_bank.pkl'
+
         detector = DINOv2AnomalyDetector(model_name= backbone)
         detector.train(train_dl)
-        detector.save_ma_memory_bank("./trained_models/ma2ptch_memory_bank.pkl")
+        detector.save_ma_memory_bank(m2ptch_mem_bank_path)
 
         # Test
         detector_test = DINOv2AnomalyDetector(model_name= backbone)

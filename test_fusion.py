@@ -18,7 +18,8 @@ PC_SIZE = 224
 # Strong foreground threshold
 STR_F_THRESH = 1.13
 # Result directory
-RESULT_DIR = 'result/'
+RESULT_DIR = 'result'
+SAVED_MODELS_DIR = 'saved_models'
 
 def run_combined_model(
         classes: list = ALL_CLASSES,
@@ -52,15 +53,22 @@ def run_combined_model(
             _, test_dl = CoalDataset(cls=cls, size=PC_SIZE).get_dataloaders()
 
         # Initialize three detectors
+
+        ma_memory_bank_path = f'{SAVED_MODELS_DIR}/{cls}/ma_memory_bank.pkl'
+        confidence_model_path = f'{SAVED_MODELS_DIR}/{cls}/confidence_model.pkl'
+        ma2ptch_memory_bank_path = f'{SAVED_MODELS_DIR}/{cls}/ma2ptch_memory_bank.pkl'
+        pc_memory_bank_path = f'{SAVED_MODELS_DIR}/{cls}/pc_memory_bank.pth'
+
+
         detector_clu = DINOv2AnomalyDetector(model_name=clu_backbone, img_size=CLU_SIZE, strong_foreground_threshold=threshold)
-        detector_clu.load_ma_memory_bank("./saved_models/ma_memory_bank.pkl")
-        detector_clu.load_clu_model("./saved_models/confidence_model.pkl")
+        detector_clu.load_ma_memory_bank(ma_memory_bank_path)
+        detector_clu.load_clu_model(confidence_model_path)
 
         detector_m2p = DINOv2AnomalyDetector_ma2patch(model_name=m2p_backbone, img_size=M2P_SIZE)
-        detector_m2p.load_ma_memory_bank("./saved_models/ma2ptch_memory_bank.pkl")
+        detector_m2p.load_ma_memory_bank(ma2ptch_memory_bank_path)
 
         detector_pc = PatchCore(image_size=PC_SIZE)
-        detector_pc.load_memory_bank("saved_models/pc_memory_bank.pth")
+        detector_pc.load_memory_bank(pc_memory_bank_path)
         
         print('Initializing combined detector...')
         # Initialize combined detector
