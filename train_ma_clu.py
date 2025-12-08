@@ -22,7 +22,6 @@ def run_model(
     size = VIT_SIZE
     results = {}# key = class, Value = [image-level ROC AUC, pixel-level ROC AUC]
 
-    print(f'Running PatchCore...')
     for cls in classes:
         print(f'\nClass {cls}:')
 

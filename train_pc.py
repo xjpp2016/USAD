@@ -21,7 +21,6 @@ def run_model(
     size = PC_SIZE
     results = {}# key = class, Value = [image-level ROC AUC, pixel-level ROC AUC]
 
-    print(f'Running PatchCore...')
     for cls in classes:
         print(f'\nClass {cls}:')
 
@@ -35,10 +34,10 @@ def run_model(
 
         patch_core.fit(train_dl)
 
-        # 保存memory_bank
+        # save_memory_bank
         patch_core.save_memory_bank(pc_memory_bank_path)
 
-        # 加载memory_bank
+        # load_memory_bank
         patch_core.load_memory_bank(pc_memory_bank_path)
 
         print(f'Testing...')

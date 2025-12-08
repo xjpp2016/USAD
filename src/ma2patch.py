@@ -230,9 +230,11 @@ class DINOv2AnomalyDetector(torch.nn.Module):
             pixel_preds.extend(segm_map.flatten())
 
             # Normalize to 0-255
-            segm_map_255 = ((segm_map - segm_map.min()) / 
-                                (segm_map.max() - segm_map.min()) * 255).astype(np.uint8)
-            # segm_map_255 = (segm_map * 255).astype(np.uint8)
+            if segm_map.max() - segm_map.min() > 1e-8:
+                segm_map_255 = ((segm_map - segm_map.min()) / 
+                                    (segm_map.max() - segm_map.min()) * 255).astype(np.uint8)
+            else:
+                segm_map_255 = (segm_map * 255).astype(np.uint8)
             
             seg_filename = os.path.join(save_dir, "segmentation_maps", f"{idx:04d}_seg_map.png")
             cv2.imwrite(seg_filename, segm_map_255)
