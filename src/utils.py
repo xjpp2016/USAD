@@ -121,3 +121,97 @@ def set_seed(seed: int = 42):
     os.environ['PYTHONHASHSEED'] = str(seed)
     
     print(f"All random seeds fixed to {seed}")
+
+
+def compute_pro(amaps, masks, num_th=200):
+    """
+    Compute PRO (Per-Region Overlap) AUC
+    Args:
+        masks: ground truth masks (numpy array, shape: [N, H, W])
+        amaps: anomaly maps (numpy array, shape: [N, H, W])
+        num_th: number of thresholds
+    Returns:
+        pro_auc: PRO AUC score
+    """
+    import pandas as pd
+    from skimage import measure
+    from statistics import mean
+    from sklearn.metrics import auc
+
+    # Ensure inputs are numpy arrays
+    masks = np.array(masks)
+    amaps = np.array(amaps)
+    
+    # Ensure masks are binary
+    if masks.max() > 1:
+        masks = (masks > 128).astype(np.uint8)
+    
+    # Normalize anomaly maps to range [0, 1]
+    if amaps.max() > 1:
+        amaps = amaps.astype(np.float32) / 255.0
+    else:
+        amaps = amaps.astype(np.float32)
+    
+    min_th = amaps.min()
+    max_th = amaps.max()
+    delta = (max_th - min_th) / num_th
+    
+    df = pd.DataFrame([], columns=["pro", "fpr", "threshold"])
+    
+    print(f"Computing PRO AUC... Threshold range: {min_th:.4f} to {max_th:.4f}")
+    
+    for th in tqdm(np.arange(min_th, max_th, delta), desc="Scanning thresholds"):
+        # Binarize anomaly map
+        binary_amaps = np.zeros_like(amaps)
+        binary_amaps[amaps > th] = 1
+        
+        pros = []
+        for binary_amap, mask in zip(binary_amaps, masks):
+            # Find connected regions in mask
+            labeled_mask = measure.label(mask)
+            regions = measure.regionprops(labeled_mask)
+            
+            for region in regions:
+                axes0_ids = region.coords[:, 0]
+                axes1_ids = region.coords[:, 1]
+                tp_pixels = binary_amap[axes0_ids, axes1_ids].sum()
+                pros.append(tp_pixels / region.area)
+        
+        # Skip if no regions detected at current threshold
+        if len(pros) == 0:
+            continue
+        
+        # Compute false positive rate
+        inverse_masks = 1 - masks
+        fp_pixels = np.logical_and(inverse_masks, binary_amaps).sum()
+        fpr = fp_pixels / (inverse_masks.sum() + 1e-10)  # Avoid division by zero
+        
+        # Add to dataframe
+        new_row = pd.DataFrame({"pro": [mean(pros)], "fpr": [fpr], "threshold": [th]})
+        df = pd.concat([df, new_row], ignore_index=True)
+    
+    # Check if there is valid data
+    if len(df) == 0:
+        print("Warning: No valid PRO data, returning 0")
+        return 0.0
+    
+    # Normalize FPR from 0~1 to 0~0.3
+    df = df[df["fpr"] < 0.3]
+    if len(df) == 0:
+        print("Warning: No data points with FPR < 0.3, returning 0")
+        return 0.0
+    
+    # Ensure maximum FPR is not 0
+    fpr_max = df["fpr"].max()
+    if fpr_max == 0:
+        print("Warning: Maximum FPR is 0, cannot normalize")
+        return 0.0
+    
+    df["fpr"] = df["fpr"] / fpr_max
+    
+    # Sort by FPR
+    df = df.sort_values("fpr")
+    
+    # Compute AUC
+    pro_auc = auc(df["fpr"], df["pro"])
+    return pro_auc

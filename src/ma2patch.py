@@ -108,12 +108,23 @@ class DINOv2AnomalyDetector(torch.nn.Module):
         if self.mean_vector is None or self.inv_cov_matrix is None:
             raise ValueError("Mahalanobis parameters not computed. Call fit() first.")
         
-        # Compute difference in batch
         diff = test_tokens - self.mean_vector.unsqueeze(0)
         
-        # Compute Mahalanobis distance in batch: sqrt((x-μ)^T Σ^(-1) (x-μ))
-        temp = torch.einsum('bi,ij->bj', diff, self.inv_cov_matrix)
-        mahal_dists = torch.sqrt(torch.einsum('bi,bi->b', temp, diff))
+        try:
+        # Compute Mahalanobis distance in batch: sqrt((x-μ)^T Σ^(-1) (x-μ)) 
+            temp = torch.einsum('bi,ij->bj', diff, self.inv_cov_matrix)
+            quad_form = torch.einsum('bi,bi->b', temp, diff)
+        except:
+            # If it fails, use diagonal approximation
+            if not hasattr(self, 'variances'):
+                self.variances = torch.diag(self.cov_matrix)
+                self.inv_variances = 1.0 / torch.clamp(self.variances, min=1e-6)
+            
+            quad_form = torch.sum(diff**2 * self.inv_variances.unsqueeze(0), dim=1)
+        
+        # Ensure non-negative
+        quad_form = torch.clamp(quad_form, min=0.0)
+        mahal_dists = torch.sqrt(quad_form + 1e-12)
         
         return mahal_dists
     
@@ -196,7 +207,7 @@ class DINOv2AnomalyDetector(torch.nn.Module):
         
         return image_anomaly_score, segm_map
 
-    def evaluate(self, test_dataloader: DataLoader, save_dir: str = "result/dinov2_anomaly/"):
+    def evaluate(self, test_dataloader: DataLoader, save_dir: str = "result/dinov2_anomaly/", cal_pro: bool = False):
         """
         Compute anomaly detection score and relative segmentation map
         Returns ROC AUC computed from prediction scores
@@ -219,6 +230,8 @@ class DINOv2AnomalyDetector(torch.nn.Module):
         image_labels = []
         pixel_preds = []
         pixel_labels = []
+        pixel_pro_preds = []
+        pixel_pro_labels = []
 
         for idx, (sample, mask, label) in enumerate(tqdm(test_dataloader)):
             image_labels.append(label)
@@ -249,6 +262,21 @@ class DINOv2AnomalyDetector(torch.nn.Module):
             sample_bgr = cv2.cvtColor(sample_np, cv2.COLOR_RGB2BGR)
             overlay = cv2.addWeighted(sample_bgr, 0.5, heatmap, 0.5, 0)
             cv2.imwrite(os.path.join(save_dir, "heatmaps", f"{idx:04d}_overlay.png"), overlay)
+
+            if label == 1 and cal_pro:
+                segm_map_np = segm_map.squeeze()
+                segm_map_normalized = ((segm_map_np - segm_map_np.min()) / 
+                                    (segm_map_np.max() - segm_map_np.min() + 1e-8))
+                pixel_pro_preds.append(segm_map_normalized)
+                pixel_pro_labels.append(mask.squeeze().cpu().numpy())
+
+        # Compute pixel-level PRO AUC
+        if cal_pro:
+            from src.utils import compute_pro
+            pixel_pro_preds = np.array(pixel_pro_preds)
+            pixel_pro_labels = np.array(pixel_pro_labels)
+            pixel_pro_auc = compute_pro(pixel_pro_preds, pixel_pro_labels)
+            print(f"pixel_pro_auc: {pixel_pro_auc:.4f}")
 
         image_labels = np.stack(image_labels)
         image_preds = np.stack(image_preds)

@@ -113,7 +113,7 @@ class PatchCore(torch.nn.Module):
             self.memory_bank = self.memory_bank[coreset_idx]
 
 
-    def evaluate(self, test_dataloader: DataLoader, save_dir: str = "result/patchcore/"):
+    def evaluate(self, test_dataloader: DataLoader, save_dir: str = "result/patchcore/", cal_pro: bool = False):
         """
         Compute anomaly detection score and relative segmentation map for
         each test sample. Returns the ROC AUC computed from predictions scores.
@@ -136,6 +136,8 @@ class PatchCore(torch.nn.Module):
         image_labels = []
         pixel_preds = []
         pixel_labels = []
+        pixel_pro_preds = []
+        pixel_pro_labels = []
 
         for idx, (sample, mask, label) in enumerate(tqdm(test_dataloader)):
             image_labels.append(label)
@@ -165,6 +167,20 @@ class PatchCore(torch.nn.Module):
             sample_bgr = cv2.cvtColor(sample_np, cv2.COLOR_RGB2BGR)
             overlay = cv2.addWeighted(sample_bgr, 0.5, heatmap, 0.5, 0)
             cv2.imwrite(os.path.join(save_dir, "heatmaps", f"{idx:04d}_overlay.png"), overlay)
+
+            if label == 1 and cal_pro:
+                segm_map_normalized = ((segm_map_np - segm_map_np.min()) / 
+                    (segm_map_np.max() - segm_map_np.min() + 1e-8))
+                pixel_pro_preds.append(segm_map_normalized)
+                pixel_pro_labels.append(mask.squeeze().cpu().numpy())
+
+        # Compute pixel-level PRO AUC
+        if cal_pro:
+            from src.utils import compute_pro
+            pixel_pro_preds = np.array(pixel_pro_preds)
+            pixel_pro_labels = np.array(pixel_pro_labels)
+            pixel_pro_auc = compute_pro(pixel_pro_preds, pixel_pro_labels)
+            print(f"pixel_pro_auc: {pixel_pro_auc:.4f}")
 
         image_labels = np.stack(image_labels)
         image_preds = np.stack(image_preds)

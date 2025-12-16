@@ -163,7 +163,7 @@ class CombinedAnomalyDetector:
         
         return combined_image_score, combined_segm_map, individual_results
     
-    def evaluate(self, test_dataloader, save_dir="result/combined_anomaly/"):
+    def evaluate(self, test_dataloader, save_dir="result/combined_anomaly/", cal_pro=False):
         """
         Evaluate combined model (includes pixel-level and image-level evaluation)
         
@@ -185,6 +185,8 @@ class CombinedAnomalyDetector:
         pixel_labels = []
         image_preds = []
         image_labels = []
+        pixel_pro_preds = []
+        pixel_pro_labels = []
 
         for idx, (sample, mask, label) in enumerate(tqdm(test_dataloader)):
             sample = sample.to(self.device)
@@ -203,6 +205,21 @@ class CombinedAnomalyDetector:
             # Save segmentation map and heatmap
             self._save_segmentation_map(combined_segm_map, os.path.join(save_dir, "segmentation_maps", f"{idx:04d}_seg_map.png"))
             self._save_heatmap(combined_segm_map, sample, os.path.join(save_dir, "heatmaps", f"{idx:04d}_heatmap.png"), os.path.join(save_dir, "heatmaps", f"{idx:04d}_overlay.png"))
+
+            if label == 1 and cal_pro:
+                segm_map_np = combined_segm_map.squeeze().cpu().numpy()
+                segm_map_normalized = ((segm_map_np - segm_map_np.min()) / 
+                                    (segm_map_np.max() - segm_map_np.min() + 1e-8) * 255).astype(np.uint8)
+                pixel_pro_preds.append(segm_map_normalized)
+                pixel_pro_labels.append(mask.squeeze().cpu().numpy())
+
+        # Compute pixel-level PRO AUC
+        if cal_pro:
+            from src.utils import compute_pro
+            pixel_pro_preds = np.array(pixel_pro_preds)
+            pixel_pro_labels = np.array(pixel_pro_labels)
+            pixel_pro_auc = compute_pro(pixel_pro_preds, pixel_pro_labels)
+            print(f"pixel_pro_auc: {pixel_pro_auc:.4f}")
 
         # Compute image-level ROC AUC
         image_level_rocauc = roc_auc_score(image_labels, image_preds)
