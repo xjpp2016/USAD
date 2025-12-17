@@ -12,10 +12,11 @@ If the automatic download fails, please download the dataset manually from the l
   (Extraction code: `1234`)
 
 After downloading, please organize the dataset according to the following directory structure:
-
-root/
-└── data/
-└── coal_ad/
-├── ground_truth/
-├── test/
-└── train/
+```
+root
+└── data
+    ├── coal_ad
+    │   ├── ground_truth
+    │   ├── test
+    │   └── train
+```
