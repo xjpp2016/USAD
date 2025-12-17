@@ -24,7 +24,7 @@ IMAGENET_STD = tensor([.229, .224, .225])
 
 
 class_links = {
-    "coal_ad_train": "https://cnnorth4-modelhub-datasets-obsfs.obs.cn-north-4.myhuaweicloud.com/create-repo/457518/CoalAD/coal_ad_train.tar?AccessKeyId=HPUAHHQDSXVCHCPLIUT1&Expires=1765969302&response-content-disposition=attachment&response-content-type=application%2Foctet-stream&Signature=CszjJfTy48Eo%2Ft6i69ST%2FnPLMkA%3D",
+    "coal_ad_train": "https://cnnorth4-modelhub-datasets-obsfs.obs.cn-north-4.myhuaweicloud.com/create-repo/457518/CoalAD/coal_ad_test.tar?AccessKeyId=HPUA7UMEGNNJ4HLEIKH3&Expires=1766013521&response-content-disposition=attachment&response-content-type=application%2Foctet-stream&Signature=CrLdwDY5M0RICOUwuV2vW7LL4Ok%3D",
     "coal_ad_test": "https://cnnorth4-modelhub-datasets-obsfs.obs.cn-north-4.myhuaweicloud.com/create-repo/457518/CoalAD/coal_ad_test.tar?AccessKeyId=HPUAHHQDSXVCHCPLIUT1&Expires=1765969329&response-content-disposition=attachment&response-content-type=application%2Foctet-stream&Signature=%2FDUv6FHR0nXcyXRK1zcCb87BFi4%3D",
 }
 
