@@ -24,7 +24,8 @@ IMAGENET_STD = tensor([.229, .224, .225])
 
 
 class_links = {
-    # "coal_ad": "https://www.mydrive.ch/shares/38536/3830184030e49fe74747669442f0f282/download/420937370-1629951468/bottle.tar.xz",
+    "coal_ad_train": "https://cnnorth4-modelhub-datasets-obsfs.obs.cn-north-4.myhuaweicloud.com/create-repo/457518/CoalAD/coal_ad_train.tar?AccessKeyId=HPUAHHQDSXVCHCPLIUT1&Expires=1765969302&response-content-disposition=attachment&response-content-type=application%2Foctet-stream&Signature=CszjJfTy48Eo%2Ft6i69ST%2FnPLMkA%3D",
+    "coal_ad_test": "https://cnnorth4-modelhub-datasets-obsfs.obs.cn-north-4.myhuaweicloud.com/create-repo/457518/CoalAD/coal_ad_test.tar?AccessKeyId=HPUAHHQDSXVCHCPLIUT1&Expires=1765969329&response-content-disposition=attachment&response-content-type=application%2Foctet-stream&Signature=%2FDUv6FHR0nXcyXRK1zcCb87BFi4%3D",
 }
 
 
@@ -77,21 +78,32 @@ class CoalDataset:
         """
         If the expected dataset path is not found, 
         download the dataset inside /dataset.
+        Assumes two tar files: {cls}_train.tar and {cls}_test.tar
         """
 
         if not isdir(DATASETS_PATH / self.cls):
-            print(f"Class '{self.cls}' has not been found in '{DATASETS_PATH}/'. Downloading... \n")
+            print(f"Class '{self.cls}' not found. Downloading...")
             
             ssl._create_default_https_context = ssl._create_unverified_context
-            wget.download(class_links[self.cls]) # Download of the zipped dataset
-            with tarfile.open(f"{self.cls}.tar.xz") as tar: # Unzip
-                tar.extractall(DATASETS_PATH)
-            os.remove(f"{self.cls}.tar.xz") # Clean up
             
-            print(f"Correctly Downloaded \n")
-
+            # 下载并解压train和test两个文件
+            for suffix in ['_train', '_test']:
+                tar_name = f"{self.cls}{suffix}.tar"
+                link_key = f"{self.cls}{suffix}"
+                
+                if link_key in class_links:
+                    print(f"Downloading {tar_name}...")
+                    wget.download(class_links[link_key])
+                    
+                    print(f"\nExtracting {tar_name}...")
+                    with tarfile.open(tar_name) as tar:
+                        tar.extractall(DATASETS_PATH)
+                    
+                    os.remove(tar_name)
+            
+            print(f"\nDataset '{self.cls}' downloaded successfully")
         else:
-            print(f"Class '{self.cls}' has been found in '{DATASETS_PATH}/'\n")
+            print(f"Dataset '{self.cls}' already exists")
 
 
     def get_datasets(self):
