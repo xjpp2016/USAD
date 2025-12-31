@@ -12,9 +12,9 @@ warnings.filterwarnings('ignore', category=FutureWarning)
 # Define all coal classes
 ALL_CLASSES = coal_classes()
 # Define image sizes for different models
-CLU_SIZE = 336
-M2P_SIZE = 224
-PC_SIZE = 224
+CLU_SIZE = 350
+M2P_SIZE = 406
+PC_SIZE = 252
 # Strong foreground threshold
 STR_F_THRESH = 1.13
 # Result directory
