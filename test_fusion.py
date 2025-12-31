@@ -14,7 +14,7 @@ ALL_CLASSES = coal_classes()
 # Define image sizes for different models
 CLU_SIZE = 350
 M2P_SIZE = 406
-PC_SIZE = 252
+PC_SIZE = 238
 # Strong foreground threshold
 STR_F_THRESH = 1.13
 # Result directory

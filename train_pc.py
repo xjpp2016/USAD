@@ -8,7 +8,7 @@ warnings.filterwarnings('ignore', category=FutureWarning)
 
 
 ALL_CLASSES = coal_classes()
-PC_SIZE = 252
+PC_SIZE = 238
 RESULT_DIR = 'result'
 SAVED_MODELS_DIR = 'trained_models'
 
