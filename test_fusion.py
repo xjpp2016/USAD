@@ -107,4 +107,4 @@ def run_combined_model(
 if __name__ == "__main__":
     # Set random seed for reproducible results
     set_seed(22)
-    run_combined_model(threshold=STR_F_THRESH)
+    run_combined_model()
