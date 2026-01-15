@@ -151,6 +151,9 @@ class CombinedAnomalyDetector:
     
         # Combine segmentation maps using Hadamard product
         combined_segm_map = segm_map_clu_resized * segm_map_pc_resized * segm_map_m2p_resized
+
+        # Compute combined image-level score
+        combined_image_score = combined_image_score + torch.max(combined_segm_map)
         
         # Post-process combined segmentation map
         combined_segm_map_np = combined_segm_map.squeeze().cpu().numpy()
