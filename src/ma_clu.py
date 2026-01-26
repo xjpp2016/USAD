@@ -28,7 +28,7 @@ class DINOv2AnomalyDetector(torch.nn.Module):
             img_size: int = 336,
             strong_foreground_threshold: float = 1.13,
             gaussian_sigma: float = 4.0,  # Add Gaussian filter parameter
-            replace_method: str = "random_replacement", # Add replacement method parameter "mean_replacement", "random_replacement"
+            replace_method: str = "mean_replacement", # Add replacement method parameter "mean_replacement", "random_replacement"
     ):
         super(DINOv2AnomalyDetector, self).__init__()
         
@@ -199,10 +199,6 @@ class DINOv2AnomalyDetector(torch.nn.Module):
 
             else:
                 raise ValueError(f"Unknown replacement method: {self.replace_method}")
-
-            # Replace strong foreground points with background mean value
-            background_mean = np.mean(background_scores)
-            modified_scores[strong_foreground_mask] = background_mean
             
             # print(f"Replaced {np.sum(strong_foreground_mask)} strong foreground points")
         
