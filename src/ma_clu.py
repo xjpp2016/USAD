@@ -26,7 +26,7 @@ class DINOv2AnomalyDetector(torch.nn.Module):
             model_name: str = "vit_small_patch14_dinov2.lvd142m",
             clusters: int = 2,
             img_size: int = 336,
-            strong_foreground_threshold: float = 1.13,
+            strong_foreground_threshold: float = 1.14,
             gaussian_sigma: float = 4.0,  # Add Gaussian filter parameter
             replace_method: str = "mean_replacement", # Add replacement method parameter "mean_replacement", "random_replacement"
     ):

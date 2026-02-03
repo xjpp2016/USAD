@@ -16,7 +16,7 @@ CLU_SIZE = 350
 M2P_SIZE = 406
 PC_SIZE = 238
 # Strong foreground threshold
-STR_F_THRESH = 1.13
+STR_F_THRESH = 1.14
 # Result directory
 RESULT_DIR = 'result'
 SAVED_MODELS_DIR = 'saved_models'
