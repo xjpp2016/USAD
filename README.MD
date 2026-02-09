@@ -78,6 +78,12 @@ This script loads model files from `saved_models/` and outputs the final detecti
 
 ---
 
+## Comparison with Representative Methods
+
+![](png/result.png)
+
+---
+
 ## Acknowledgements
 
 Part of our code is adapted from:  
