@@ -33,6 +33,7 @@ root/
     │   ├── ground_truth/
     │   ├── test/
     │   └── train/
+```
 
 ## Train Your Own Models
 
