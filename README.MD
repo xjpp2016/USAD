@@ -11,10 +11,20 @@ To support evaluation and comparison in this setting, we construct **CoalAD**, a
 
 ---
 
+## CoalAD Dataset Examples
+
+![CoalAD examples](png/coalad.png)
+
+**Unstructured characteristics and low-contrast anomaly examples in conveyor-belt coal-stream scenes.**  
+Normal samples are shown on the left (a–d) and anomalous samples on the right (e–h). Normal scenes exhibit randomly piled and intermixed coal and gangue with irregular sizes, shapes, and spatial distributions; meanwhile, belt wear patterns and coal dust introduce complex and variable backgrounds. In anomalous scenes, foreign objects (e.g., wood, nets/ropes, and bags) are often tightly coupled with the coal stream and thus difficult to distinguish due to low contrast, occlusion, and discoloration, which frequently results in blurred boundaries.
+
+---
+
 ## Data Download
 
 ### Automatic Download (Recommended)
-The required dataset will be automatically downloaded and prepared during the first execution of the code.
+The dataset will be automatically downloaded and prepared during the first execution of the code.  
+By default, it is downloaded from **ModelScope**: https://www.modelscope.cn/datasets/lyfjwp/CoalAD
 
 ### Manual Download (Alternative)
 If automatic download fails, please download the dataset manually:
@@ -32,7 +42,6 @@ root/
     │   ├── test/
     │   └── train/
 ```
-
 ## Train Your Own Models
 
 We provide training scripts for each branch:
@@ -43,7 +52,15 @@ We provide training scripts for each branch:
 
 Trained models will be saved to the `trained_models/` directory.
 
-> **Note:** For three-branch fusion testing, please copy (or move) the trained models from `trained_models/` to `saved_models/`, overwriting the existing model files if necessary.
+> **Note:** For three-branch fusion testing, please copy (or move) the trained models from `trained_models/` to `saved_models/`, overwriting the existing files if needed.
+
+### Branch Pipelines
+
+**MACLU** pipeline:  
+![](png/maclu.png)
+
+**MA2Patch** pipeline:  
+![](png/ma2patch.png)
 
 ---
 
@@ -54,6 +71,10 @@ To run three-branch fusion testing, execute:
 - `test_fusion.py`
 
 This script loads model files from `saved_models/` and outputs the final detection and localization results.
+
+### Fusion Pipeline
+
+![](png/coalfusion.png)
 
 ---
 
