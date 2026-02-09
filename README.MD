@@ -9,8 +9,6 @@ Reliable foreign-object anomaly detection and pixel-level localization in convey
 
 To support evaluation and comparison in this setting, we construct **CoalAD**, a benchmark for unsupervised foreign-object anomaly detection with pixel-level localization in coal-stream scenes. We further propose a **complementary-cue collaborative perception framework** that extracts and fuses complementary anomaly evidence from three perspectives: (1) object-level semantic composition modeling, (2) semantic-attribution-based global deviation analysis, and (3) fine-grained texture matching. The fused outputs provide robust image-level anomaly scoring and accurate pixel-level localization. Experiments on CoalAD demonstrate that our method outperforms widely used baselines across evaluated image-level and pixel-level metrics, and ablation studies validate the contribution of each component.
 
-Code: https://github.com/xjpp2016/USAD
-
 ---
 
 ## Data Download
