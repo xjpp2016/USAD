@@ -4,7 +4,7 @@ This repository provides the official implementation of our paper:
 
 **Semantic-Deviation-Anchored Multi-Branch Fusion for Unsupervised Anomaly Detection and Localization in Unstructured Conveyor-Belt Coal Scenes**
 
-![pdf](https://arxiv.org/pdf/2602.07694)
+📄 Paper (PDF): https://arxiv.org/pdf/2602.07694
 
 ## Abstract
 Reliable foreign-object anomaly detection and pixel-level localization in conveyor-belt coal scenes are essential for safe and intelligent mining operations. This task is particularly challenging due to the highly unstructured environment: coal and gangue are randomly piled, backgrounds are complex and variable, and foreign objects often exhibit low contrast, deformation, and occlusion, resulting in strong coupling with their surroundings. These characteristics weaken the stability and regularity assumptions that many anomaly detection methods rely on in structured industrial settings, leading to notable performance degradation.
